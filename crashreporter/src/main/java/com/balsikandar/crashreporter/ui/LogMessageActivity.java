@@ -3,8 +3,6 @@ package com.balsikandar.crashreporter.ui;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.TextView;
@@ -14,6 +12,16 @@ import com.balsikandar.crashreporter.utils.AppUtils;
 import com.balsikandar.crashreporter.utils.FileUtils;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+
+import static androidx.core.content.FileProvider.getUriForFile;
 
 public class LogMessageActivity extends AppCompatActivity {
 
@@ -74,11 +82,48 @@ public class LogMessageActivity extends AppCompatActivity {
         }
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     private void shareCrashReport(String filePath) {
+        final File dir = new File(getFilesDir(), "sharedcrashes");
+        dir.mkdirs();
+
+        final File file = new File(dir, "crash.txt");
+        if (file.exists()) file.delete();
+
+        try {
+            copy(new File(filePath), file);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return;
+        }
+
+        Uri contentUri = getUriForFile(this, "com.balsikandar.crashreporter", file);
+
         Intent intent = new Intent(Intent.ACTION_SEND);
-        intent.setType("*/*");
         intent.putExtra(Intent.EXTRA_TEXT, appInfo.getText().toString());
-        intent.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(new File(filePath)));
+        intent.setData(contentUri);
         startActivity(Intent.createChooser(intent, "Share via"));
+    }
+
+    /*
+     * https://stackoverflow.com/questions/9292954/how-to-make-a-copy-of-a-file-in-android
+     */
+    private void copy(File src, File dst) throws IOException {
+        InputStream in = new FileInputStream(src);
+        try {
+            OutputStream out = new FileOutputStream(dst);
+            try {
+                // Transfer bytes from in to out
+                byte[] buf = new byte[1024];
+                int len;
+                while ((len = in.read(buf)) > 0) {
+                    out.write(buf, 0, len);
+                }
+            } finally {
+                out.close();
+            }
+        } finally {
+            in.close();
+        }
     }
 }
